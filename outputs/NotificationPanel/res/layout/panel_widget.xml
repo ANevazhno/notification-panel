@@ -1,0 +1,7 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp" android:background="@drawable/widget_background">
+    <TextView android:id="@+id/widget_open" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Уведомления  ↗" android:textSize="22sp" android:textStyle="bold" android:textColor="#F5F8FD" android:paddingBottom="8dp" android:contentDescription="Открыть панель уведомлений"/>
+    <TextView android:id="@+id/widget_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Откройте панель для подключения" android:textSize="12sp" android:textColor="#BACADB" android:paddingBottom="6dp"/>
+    <ListView android:id="@+id/widget_list" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:divider="@android:color/transparent" android:dividerHeight="3dp"/>
+    <LinearLayout android:id="@+id/widget_rows" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical" android:visibility="gone"/>
+    <TextView android:id="@+id/widget_footer" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Открыть панель  →" android:textSize="13sp" android:textColor="#D4EAFF" android:paddingTop="12dp" android:paddingBottom="4dp"/>
+</LinearLayout>

@@ -1,0 +1,41 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="local.notificationpanel" android:versionCode="39" android:versionName="0.11.13">
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="36" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <queries><intent><action android:name="android.intent.action.SENDTO"/><data android:scheme="smsto"/></intent><intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent></queries>
+    <application android:name=".PanelApplication" android:label="Шторка" android:icon="@drawable/ic_panel" android:theme="@style/PanelTheme" android:allowBackup="false" android:supportsRtl="true">
+        <receiver android:name=".PanelWidget" android:label="Уведомления по приложениям" android:exported="false">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/panel_widget"/>
+        </receiver>
+        <activity android:name=".OverlayPanelActivity" android:theme="@style/PanelTranslucentTheme" android:exported="false" android:launchMode="singleTask" android:taskAffinity="local.notificationpanel.overlay" android:excludeFromRecents="true" />
+        <service android:name=".EdgePanelService" android:exported="false" android:foregroundServiceType="specialUse"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled visible edge handle for opening notification panel across apps; ongoing notification opens the app." /></service>
+        <receiver android:name=".SpletaRestoreReceiver" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter>
+        </receiver>
+        <activity android:name=".SpletaActivity" android:exported="false" />
+        <service android:name=".SpletaSyncJob" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service android:name=".SpletaPushService" android:exported="false" android:foregroundServiceType="specialUse"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled persistent private portal notification stream without third-party push providers, with ongoing notification." /></service>
+        <activity android:name=".SettingsActivity" android:exported="false" />
+        <activity android:name=".UpdateActivity" android:exported="false" />
+        <provider android:name=".UpdateProvider" android:authorities="local.notificationpanel.updates" android:exported="false" android:grantUriPermissions="true" />
+        <activity android:name=".PanelActivity" android:theme="@style/PanelTranslucentTheme" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity>
+        <service android:name=".NotificationBridge" android:label="Шторка" android:exported="true" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService"/></intent-filter>
+        </service>
+        <service android:name=".PanelTile" android:label="Шторка" android:icon="@drawable/ic_panel" android:exported="true" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/></intent-filter>
+        </service>
+    </application>
+</manifest>
+

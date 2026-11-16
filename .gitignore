@@ -1,0 +1,13 @@
+*.jks
+*.keystore
+*.p12
+*.pem
+.env*
+*.apk
+*.class
+*.dex
+*.log
+build/
+.private/
+work/toolchain/
+work/panel/
