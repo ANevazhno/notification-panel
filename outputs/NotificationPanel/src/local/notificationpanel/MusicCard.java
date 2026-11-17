@@ -21,6 +21,7 @@ final class MusicCard extends LinearLayout {
     private final Handler main=new Handler(Looper.getMainLooper());
     private final Map<MediaController,MediaController.Callback> watched=new LinkedHashMap<>();
     private final MediaSessionManager.OnActiveSessionsChangedListener sessions=this::bind;
+    private final Runnable notifications=this::update;
     private MediaController selected;
     private boolean started;
     private final ImageView artwork;
@@ -45,8 +46,8 @@ final class MusicCard extends LinearLayout {
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
     private TextView label(int size,int color){TextView v=new TextView(activity);v.setTextSize(size);v.setTextColor(color);v.setMaxLines(1);v.setEllipsize(TextUtils.TruncateAt.END);return v;}
     private ImageButton control(int icon,String description,Runnable action){ImageButton b=new ImageButton(activity);b.setImageDrawable(new Symbol(icon));b.setContentDescription(description);b.setBackground(new RippleDrawable(android.content.res.ColorStateList.valueOf(PanelColors.RIPPLE),null,null));b.setOnClickListener(v->action.run());return b;}
-    void start(){if(started||manager==null)return;started=true;try{manager.addOnActiveSessionsChangedListener(sessions,listener,main);refresh();}catch(SecurityException e){stop();}}
-    void stop(){started=false;if(manager!=null)manager.removeOnActiveSessionsChangedListener(sessions);clear();selected=null;artwork.setImageDrawable(null);setVisibility(GONE);}
+    void start(){if(started||manager==null)return;started=true;try{manager.addOnActiveSessionsChangedListener(sessions,listener,main);NotificationBridge.watch(notifications);refresh();}catch(SecurityException e){stop();}}
+    void stop(){started=false;NotificationBridge.unwatch(notifications);if(manager!=null)manager.removeOnActiveSessionsChangedListener(sessions);clear();selected=null;artwork.setImageDrawable(null);setVisibility(GONE);}
     private void clear(){for(Map.Entry<MediaController,MediaController.Callback> e:watched.entrySet())e.getKey().unregisterCallback(e.getValue());watched.clear();}
     private void refresh(){if(!started)return;try{bind(manager.getActiveSessions(listener));}catch(SecurityException e){stop();}}
     private void bind(List<MediaController> controllers){
@@ -61,7 +62,7 @@ final class MusicCard extends LinearLayout {
     private void update(){
         KeyguardManager keyguard=activity.getSystemService(KeyguardManager.class);
         if(!started||keyguard==null||keyguard.isDeviceLocked()){setVisibility(GONE);return;}
-        MediaController best=null;for(MediaController c:watched.keySet())if(rank(c)>0&&(best==null||rank(c)>rank(best)||(rank(c)==rank(best)&&selected!=null&&c.getSessionToken().equals(selected.getSessionToken()))))best=c;
+        MediaController best=null;for(MediaController c:watched.keySet())if(rank(c)>0&&NotificationBridge.hasMediaNotification(c)&&(best==null||rank(c)>rank(best)||(rank(c)==rank(best)&&selected!=null&&c.getSessionToken().equals(selected.getSessionToken()))))best=c;
         selected=best;if(best==null){setVisibility(GONE);artwork.setImageDrawable(null);return;}
         MediaMetadata m=best.getMetadata();CharSequence name=m==null?null:m.getText(MediaMetadata.METADATA_KEY_DISPLAY_TITLE);if(TextUtils.isEmpty(name)&&m!=null)name=m.getText(MediaMetadata.METADATA_KEY_TITLE);
         String app=best.getPackageName();try{app=activity.getPackageManager().getApplicationLabel(activity.getPackageManager().getApplicationInfo(app,0)).toString();}catch(Exception ignored){}

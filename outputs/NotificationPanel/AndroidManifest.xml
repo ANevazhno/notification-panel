@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="local.notificationpanel" android:versionCode="39" android:versionName="0.11.13">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="local.notificationpanel" android:versionCode="40" android:versionName="0.11.14">
     <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="36" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.INTERNET" />

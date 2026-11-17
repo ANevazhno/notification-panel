@@ -1,5 +1,8 @@
 package local.notificationpanel;
 
+import android.app.Notification;
+import android.media.session.MediaController;
+import android.media.session.MediaSession;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.notification.NotificationListenerService;
@@ -39,6 +42,17 @@ public final class NotificationBridge extends NotificationListenerService {
     public static void watch(Runnable r) { observers.add(r); }
     public static void unwatch(Runnable r) { observers.remove(r); }
     public static List<StatusBarNotification> snapshot() { Map<String,StatusBarNotification> merged=new LinkedHashMap<>();for(StatusBarNotification s:LocalNotifications.snapshot())merged.put(s.getKey(),s);merged.putAll(active);List<StatusBarNotification> all=SmsSource.removeDuplicates(new ArrayList<>(merged.values()));all.addAll(SpletaSource.snapshot());all.addAll(SmsSource.snapshot());return all; }
+    /** A live source notification, not a local copy or a resumable SystemUI history card. */
+    static boolean hasMediaNotification(MediaController controller) {
+        if(controller==null)return false;
+        MediaSession.Token token=controller.getSessionToken();
+        for(StatusBarNotification s:active.values()){
+            if(!s.getUser().equals(android.os.Process.myUserHandle())||!s.getPackageName().equals(controller.getPackageName()))continue;
+            Object media=s.getNotification().extras.get(Notification.EXTRA_MEDIA_SESSION);
+            if(token.equals(media))return true;
+        }
+        return false;
+    }
     @Override public void onListenerConnected() {
         instance=this;SmsSource.sync();transferring.clear();
         active.clear();
