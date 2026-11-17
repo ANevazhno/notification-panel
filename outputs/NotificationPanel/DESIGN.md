@@ -222,7 +222,7 @@ Use the existing Spleta mark from public/spleta-login-logo.svg, converted to And
 
 OTA 0.11.13 subsequently published with explicit user approval on 2026-11-05. Public latest manifest and APK download verified; SHA-256 matches tested local APK. User will install over the air.
 
-## 0.11.14 — привязка музыкальной карточки к уведомлению (кандидат)
+## 0.11.14 — привязка музыкальной карточки к уведомлению
 
 Карточка видна только при активном медиасеансе playing/paused и живом уведомлении
 того же пакета/профиля с совпадающим Notification.EXTRA_MEDIA_SESSION. Обычная
@@ -232,5 +232,9 @@ OTA 0.11.13 subsequently published with explicit user approval on 2026-11-05. Pu
 воспроизводятся. Не считать совпадение с Яндекс Музыкой на OnePlus доказанным до
 проверки устройства: OEM и плеер могут вести себя иначе. Linux-сборка SDK 36/JDK 17,
 GroupingTest, UpdateCoreTest и подпись v3 прошли; Android instrumentation и тест
-на телефоне не запускались. На момент записи релиз ещё не опубликован.
+на телефоне не запускались. OTA опубликовано 17 ноября 2026 по явному запросу
+пользователя без проверки на телефоне. Публичные latest.json и APK скачаны без
+авторизации: versionCode 40, APK и манифест побайтно совпали с локальными,
+сертификат подписи совпадает с опубликованным APK 0.11.13. Факт установки
+пользователем и реальное поведение Яндекс Музыки пока неизвестны.
 
