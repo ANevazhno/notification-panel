@@ -23,7 +23,8 @@ public final class SpletaSource {
     private static Context context;
     private static String account="",status="Не подключено";
     private static long generation,lastAttempt;
-    private static boolean busy;
+    private static boolean busy,pendingForce;
+    private static final List<java.util.function.Consumer<Boolean>> pendingDone=new ArrayList<>();
     interface Transport { JSONObject request(String path,String method,String cookie) throws Exception; }
     private static Transport transport=SpletaSource::request;
     static void init(Context c){context=c.getApplicationContext();account=prefs().getString("account","");
@@ -45,14 +46,23 @@ public final class SpletaSource {
         if(duration>0)main.postDelayed(NotificationBridge::sourceChanged,duration);return true;
     }
     private static void saveHidden(){prefs().edit().putString("hidden",new JSONObject(hidden).toString()).apply();}
-    static void disconnect(){SpletaPushService.stop(context);generation++;items.clear();signatures.clear();hidden.clear();account="";prefs().edit().clear().apply();status="Не подключено";
+    static void disconnect(){SpletaPushService.stop(context);generation++;pendingForce=false;List<java.util.function.Consumer<Boolean>> cancelled=new ArrayList<>(pendingDone);pendingDone.clear();for(java.util.function.Consumer<Boolean> done:cancelled)done.accept(false);items.clear();signatures.clear();hidden.clear();account="";prefs().edit().clear().apply();status="Не подключено";
         context.getSystemService(android.app.job.JobScheduler.class).cancel(731);
+        context.getSystemService(android.app.job.JobScheduler.class).cancel(732);
         CookieManager.getInstance().removeAllCookies(null);CookieManager.getInstance().flush();NotificationBridge.sourceChanged();
     }
     static void connect(java.util.function.Consumer<Boolean> done){generation++;items.clear();signatures.clear();hidden.clear();account="";prefs().edit().putBoolean("enabled",true).remove("account").remove("hidden").apply();NotificationBridge.sourceChanged();sync(true,done);}
     static void schedule(){if(!enabled())return;android.app.job.JobScheduler jobs=context.getSystemService(android.app.job.JobScheduler.class);if(jobs.getPendingJob(731)!=null)return;jobs.schedule(new android.app.job.JobInfo.Builder(731,new ComponentName(context,SpletaSyncJob.class)).setRequiredNetworkType(android.app.job.JobInfo.NETWORK_TYPE_ANY).setPeriodic(15*60000L).build());}
+    static void scheduleSoon(){if(!enabled())return;android.app.job.JobScheduler jobs=context.getSystemService(android.app.job.JobScheduler.class);if(jobs.getPendingJob(732)==null)jobs.schedule(new android.app.job.JobInfo.Builder(732,new ComponentName(context,SpletaSyncJob.class)).setRequiredNetworkType(android.app.job.JobInfo.NETWORK_TYPE_ANY).build());}
+    private static void drain(){
+        if(!pendingForce||busy)return;
+        pendingForce=false;List<java.util.function.Consumer<Boolean>> callbacks=new ArrayList<>(pendingDone);pendingDone.clear();
+        sync(true,ok->{for(java.util.function.Consumer<Boolean> done:callbacks)done.accept(ok);});
+    }
     static void sync(boolean force,java.util.function.Consumer<Boolean> done){
-        if(!enabled()||busy||(!force&&SystemClock.elapsedRealtime()-lastAttempt<30000)){if(done!=null)done.accept(false);return;}
+        if(!enabled()){if(done!=null)done.accept(false);return;}
+        if(busy){if(force){pendingForce=true;if(done!=null)pendingDone.add(done);}else if(done!=null)done.accept(false);return;}
+        if(!force&&SystemClock.elapsedRealtime()-lastAttempt<30000){if(done!=null)done.accept(false);return;}
         final String cookie=CookieManager.getInstance().getCookie(ORIGIN);final long token=generation;
         busy=true;lastAttempt=SystemClock.elapsedRealtime();status="Обновляем уведомления…";
         io.execute(()->{try{
@@ -60,13 +70,13 @@ public final class SpletaSource {
             if(user==null||user.optString("id").isEmpty())throw new LoginRequired();
             String userId=user.getString("id");String name=user.optString("name",user.optString("email",""));
             LinkedHashMap<String,JSONObject> rows=fetchAll(cookie);
-            main.post(()->{busy=false;if(token!=generation){if(done!=null)done.accept(false);return;}
+            main.post(()->{busy=false;if(token!=generation){try{if(done!=null)done.accept(false);}finally{drain();}return;}
                 if(!account.equals(userId)){items.clear();signatures.clear();hidden.clear();}account=userId;
                 apply(rows);prefs().edit().putString("account",account).apply();saveHidden();
                 status=(name.isEmpty()?"Подключено":name)+" · "+rows.size()+" непрочитанных · "+android.text.format.DateFormat.format("HH:mm",new Date());
-                schedule();NotificationBridge.sourceChanged();if(done!=null)done.accept(true);
+                schedule();NotificationBridge.sourceChanged();try{if(done!=null)done.accept(true);}finally{drain();}
             });
-        }catch(Exception ex){main.post(()->{busy=false;if(token==generation){if(ex instanceof LoginRequired){items.clear();signatures.clear();status="Войдите в Spleta заново";}else status="Не удалось обновить. Проверьте сеть и повторите.";NotificationBridge.sourceChanged();}if(done!=null)done.accept(false);});}});
+        }catch(Exception ex){main.post(()->{busy=false;if(token==generation){if(ex instanceof LoginRequired){items.clear();signatures.clear();status="Войдите в Spleta заново";}else status="Не удалось обновить. Проверьте сеть и повторите.";NotificationBridge.sourceChanged();}try{if(done!=null)done.accept(false);}finally{drain();}});}});
     }
     static LinkedHashMap<String,JSONObject> fetchAll(String cookie)throws Exception{
         LinkedHashMap<String,JSONObject> rows=new LinkedHashMap<>();Set<String> cursors=new HashSet<>();String cursor=null;

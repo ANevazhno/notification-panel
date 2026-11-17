@@ -9,7 +9,7 @@ public final class PanelApplication extends Application {
     public void onCreate(){super.onCreate();instance=this;LocalNotifications.init(this);SpletaSource.init(this);SmsSource.init(this);
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks(){
             public void onActivityStarted(android.app.Activity a){}public void onActivityStopped(android.app.Activity a){}
-            public void onActivityCreated(android.app.Activity a,Bundle b){}public void onActivityResumed(android.app.Activity a){EdgePanelService.activityVisible(true);EdgePanelService.restore(a);SpletaPushService.restore(a);SmsSource.sync();}public void onActivityPaused(android.app.Activity a){EdgePanelService.activityVisible(false);}public void onActivitySaveInstanceState(android.app.Activity a,Bundle b){}public void onActivityDestroyed(android.app.Activity a){}
+            public void onActivityCreated(android.app.Activity a,Bundle b){}public void onActivityResumed(android.app.Activity a){EdgePanelService.activityVisible(true);EdgePanelService.restore(a);SpletaPushService.restore(a);SpletaSource.sync(false,null);SmsSource.sync();}public void onActivityPaused(android.app.Activity a){EdgePanelService.activityVisible(false);}public void onActivitySaveInstanceState(android.app.Activity a,Bundle b){}public void onActivityDestroyed(android.app.Activity a){}
         });
         getSharedPreferences("panel_settings",0).registerOnSharedPreferenceChangeListener(settings);
         IntentFilter f=new IntentFilter();f.addAction(Intent.ACTION_SCREEN_OFF);f.addAction(Intent.ACTION_SCREEN_ON);f.addAction(Intent.ACTION_USER_PRESENT);

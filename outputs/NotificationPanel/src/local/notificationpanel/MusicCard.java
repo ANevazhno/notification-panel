@@ -22,6 +22,7 @@ final class MusicCard extends LinearLayout {
     private final Map<MediaController,MediaController.Callback> watched=new LinkedHashMap<>();
     private final MediaSessionManager.OnActiveSessionsChangedListener sessions=this::bind;
     private final Runnable notifications=this::update;
+    private static final MediaDismissal dismissals=new MediaDismissal();
     private MediaController selected;
     private boolean started;
     private final ImageView artwork;
@@ -38,7 +39,8 @@ final class MusicCard extends LinearLayout {
         GradientDrawable clip=new GradientDrawable();clip.setColor(PanelColors.BUTTON);clip.setCornerRadius(dp(10));artwork.setBackground(clip);artwork.setClipToOutline(true);
         info.addView(artwork,new LayoutParams(dp(52),dp(52)));
         LinearLayout labels=new LinearLayout(activity);labels.setOrientation(VERTICAL);labels.setPadding(dp(12),0,0,0);
-        title=label(15,PanelColors.TEXT);title.setTypeface(null,Typeface.BOLD);subtitle=label(13,PanelColors.MUTED);labels.addView(title);labels.addView(subtitle);info.addView(labels,new LayoutParams(0,-2,1));addView(info);
+        title=label(15,PanelColors.TEXT);title.setTypeface(null,Typeface.BOLD);subtitle=label(13,PanelColors.MUTED);labels.addView(title);labels.addView(subtitle);info.addView(labels,new LayoutParams(0,-2,1));
+        ImageButton close=control(5,"Скрыть музыкальную карточку",this::dismiss);info.addView(close,new LayoutParams(dp(48),dp(48)));addView(info);
         LinearLayout controls=new LinearLayout(activity);controls.setGravity(Gravity.CENTER);
         previous=control(0,"Предыдущий трек",()->command(0));toggle=control(1,"Продолжить",()->command(1));next=control(3,"Следующий трек",()->command(3));
         controls.addView(previous,new LayoutParams(dp(64),dp(48)));controls.addView(toggle,new LayoutParams(dp(80),dp(48)));controls.addView(next,new LayoutParams(dp(64),dp(48)));addView(controls);setVisibility(GONE);
@@ -51,7 +53,8 @@ final class MusicCard extends LinearLayout {
     private void clear(){for(Map.Entry<MediaController,MediaController.Callback> e:watched.entrySet())e.getKey().unregisterCallback(e.getValue());watched.clear();}
     private void refresh(){if(!started)return;try{bind(manager.getActiveSessions(listener));}catch(SecurityException e){stop();}}
     private void bind(List<MediaController> controllers){
-        clear();if(controllers!=null)for(MediaController c:controllers){MediaController.Callback callback=new MediaController.Callback(){
+        clear();Set<MediaSession.Token> active=new HashSet<>();if(controllers!=null)for(MediaController c:controllers)active.add(c.getSessionToken());if(!active.isEmpty())dismissals.retain(active);
+        if(controllers!=null)for(MediaController c:controllers){MediaController.Callback callback=new MediaController.Callback(){
             @Override public void onPlaybackStateChanged(PlaybackState state){update();}
             @Override public void onMetadataChanged(MediaMetadata metadata){update();}
             @Override public void onSessionDestroyed(){main.post(()->refresh());}
@@ -62,7 +65,10 @@ final class MusicCard extends LinearLayout {
     private void update(){
         KeyguardManager keyguard=activity.getSystemService(KeyguardManager.class);
         if(!started||keyguard==null||keyguard.isDeviceLocked()){setVisibility(GONE);return;}
-        MediaController best=null;for(MediaController c:watched.keySet())if(rank(c)>0&&NotificationBridge.hasMediaNotification(c)&&(best==null||rank(c)>rank(best)||(rank(c)==rank(best)&&selected!=null&&c.getSessionToken().equals(selected.getSessionToken()))))best=c;
+        MediaController best=null;for(MediaController c:watched.keySet()){
+            if(dismissals.isHidden(c.getSessionToken(),running(c.getPlaybackState())))continue;
+            if(rank(c)>0&&NotificationBridge.hasMediaNotification(c)&&(best==null||rank(c)>rank(best)||(rank(c)==rank(best)&&selected!=null&&c.getSessionToken().equals(selected.getSessionToken()))))best=c;
+        }
         selected=best;if(best==null){setVisibility(GONE);artwork.setImageDrawable(null);return;}
         MediaMetadata m=best.getMetadata();CharSequence name=m==null?null:m.getText(MediaMetadata.METADATA_KEY_DISPLAY_TITLE);if(TextUtils.isEmpty(name)&&m!=null)name=m.getText(MediaMetadata.METADATA_KEY_TITLE);
         String app=best.getPackageName();try{app=activity.getPackageManager().getApplicationLabel(activity.getPackageManager().getApplicationInfo(app,0)).toString();}catch(Exception ignored){}
@@ -74,6 +80,11 @@ final class MusicCard extends LinearLayout {
         enabled(previous,(actions&PlaybackState.ACTION_SKIP_TO_PREVIOUS)!=0);enabled(next,(actions&PlaybackState.ACTION_SKIP_TO_NEXT)!=0);
         enabled(toggle,(actions&(PlaybackState.ACTION_PLAY_PAUSE|(playing?PlaybackState.ACTION_PAUSE:PlaybackState.ACTION_PLAY)))!=0);
         toggle.setImageDrawable(new Symbol(playing?2:1));toggle.setContentDescription(playing?"Пауза":"Продолжить");setVisibility(VISIBLE);
+    }
+    private void dismiss(){
+        if(selected==null)return;
+        dismissals.hide(selected.getSessionToken(),running(selected.getPlaybackState()));
+        selected=null;artwork.setImageDrawable(null);setVisibility(GONE);
     }
     private void enabled(View v,boolean value){v.setEnabled(value);v.setAlpha(value?1f:.35f);}
     private void command(int command){
@@ -87,7 +98,7 @@ final class MusicCard extends LinearLayout {
     private final class Symbol extends Drawable {
         private final int kind;private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);Symbol(int kind){this.kind=kind;paint.setColor(PanelColors.ACCENT);}
         @Override public void draw(Canvas c){android.graphics.Rect b=getBounds();c.save();c.translate(b.exactCenterX()-dp(12),b.exactCenterY()-dp(12));c.scale(dp(24)/24f,dp(24)/24f);
-            if(kind==2){c.drawRect(6,4,10,20,paint);c.drawRect(14,4,18,20,paint);}else if(kind==4){c.drawRect(10,4,12,17,paint);c.drawRect(12,4,19,7,paint);c.drawOval(4,14,12,21,paint);}else{if(kind==0){c.translate(24,0);c.scale(-1,1);}Path p=new Path();p.moveTo(7,4);p.lineTo(19,12);p.lineTo(7,20);p.close();c.drawPath(p,paint);if(kind==0||kind==3)c.drawRect(19,4,22,20,paint);}c.restore();}
+            if(kind==5){paint.setStyle(Paint.Style.STROKE);paint.setStrokeCap(Paint.Cap.ROUND);paint.setStrokeWidth(2.2f);c.drawLine(6,6,18,18,paint);c.drawLine(18,6,6,18,paint);}else if(kind==2){c.drawRect(6,4,10,20,paint);c.drawRect(14,4,18,20,paint);}else if(kind==4){c.drawRect(10,4,12,17,paint);c.drawRect(12,4,19,7,paint);c.drawOval(4,14,12,21,paint);}else{if(kind==0){c.translate(24,0);c.scale(-1,1);}Path p=new Path();p.moveTo(7,4);p.lineTo(19,12);p.lineTo(7,20);p.close();c.drawPath(p,paint);if(kind==0||kind==3)c.drawRect(19,4,22,20,paint);}c.restore();}
         @Override public void setAlpha(int a){paint.setAlpha(a);}@Override public void setColorFilter(ColorFilter f){paint.setColorFilter(f);}@Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
     }
 }

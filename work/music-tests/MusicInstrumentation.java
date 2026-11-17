@@ -5,6 +5,7 @@ public class MusicInstrumentation extends Instrumentation {
  Object call(String name,Class<?>[] types,Object... args)throws Exception{Method m=type.getDeclaredMethod(name,types);m.setAccessible(true);return m.invoke(card,args);}
  void expect(boolean value,String name){if(!value)throw new AssertionError(name);}
  void state(int state){session.setPlaybackState(new PlaybackState.Builder().setState(state,0,1).setActions(PlaybackState.ACTION_PLAY|PlaybackState.ACTION_PAUSE|PlaybackState.ACTION_SKIP_TO_NEXT).build());}
+ View find(View v,String description){if(v.getContentDescription()!=null&&description.contentEquals(v.getContentDescription()))return v;if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++){View found=find(((ViewGroup)v).getChildAt(i),description);if(found!=null)return found;}return null;}
  void notification(boolean posted){try{Class<?> bridge=Class.forName("local.notificationpanel.NotificationBridge",true,getTargetContext().getClassLoader());Object service=bridge.getDeclaredConstructor().newInstance();bridge.getMethod(posted?"onNotificationPosted":"onNotificationRemoved",StatusBarNotification.class).invoke(service,media);}catch(Exception e){throw new RuntimeException(e);}}
  @Override public void onCreate(Bundle args){super.onCreate(args);start();}
  @Override public void onStart(){Bundle result=new Bundle();try{
@@ -22,7 +23,18 @@ public class MusicInstrumentation extends Instrumentation {
  Thread.sleep(600);
  runOnMainSync(()->{try{expect(pauses==1,"pause delivered");expect(((View)card).getVisibility()==View.VISIBLE,"paused retained");call("command",new Class[]{int.class},1);call("command",new Class[]{int.class},3);call("command",new Class[]{int.class},0);}catch(Exception e){throw new RuntimeException(e);}});
  Thread.sleep(600);
- runOnMainSync(()->{expect(plays==1&&nexts==1,"play and next delivered");});
+ runOnMainSync(()->{try{
+   expect(plays==1&&nexts==1,"play and next delivered");
+   View close=find((View)card,"Скрыть музыкальную карточку");expect(close!=null&&close.performClick(),"close button works");
+   expect(((View)card).getVisibility()==View.GONE,"manual close hides card");
+   call("update",new Class[]{});expect(((View)card).getVisibility()==View.GONE,"still playing stays hidden");
+   call("bind",new Class[]{List.class},Collections.emptyList());
+   call("bind",new Class[]{List.class},Collections.singletonList(session.getController()));
+   expect(((View)card).getVisibility()==View.GONE,"temporary empty session list keeps dismissal");
+   expect(plays==1&&pauses==1&&nexts==1,"closing sends no player commands");
+   state(PlaybackState.STATE_PAUSED);call("update",new Class[]{});expect(((View)card).getVisibility()==View.GONE,"pause stays hidden");
+   state(PlaybackState.STATE_PLAYING);call("update",new Class[]{});expect(((View)card).getVisibility()==View.VISIBLE,"new playback restores card");
+  }catch(Exception e){throw new RuntimeException(e);}});
  runOnMainSync(()->notification(false));
   Thread.sleep(400);
   runOnMainSync(()->expect(((View)card).getVisibility()==View.GONE,"removed notification hides session"));
@@ -32,6 +44,6 @@ public class MusicInstrumentation extends Instrumentation {
   Thread.sleep(400);
   runOnMainSync(()->expect(((View)card).getVisibility()==View.VISIBLE,"paused with notification retained"));
  runOnMainSync(()->{try{state(PlaybackState.STATE_STOPPED);call("update",new Class[]{});expect(((View)card).getVisibility()==View.GONE,"stopped hidden");notification(false);session.release();call("stop",new Class[]{});expect(((View)card).getVisibility()==View.GONE,"cleanup");}catch(Exception e){throw new RuntimeException(e);}});
- result.putString("stream","PASS music: notification gating, pause retained, removal/repost, play/pause/next transport, unsupported previous, stopped hidden, cleanup");finish(-1,result);
+ result.putString("stream","PASS music: notification gating, manual close, pause/restart restoration, removal/repost, transport, stopped hidden, cleanup");finish(-1,result);
  }catch(Throwable e){result.putString("stream",android.util.Log.getStackTraceString(e));finish(0,result);}}
 }

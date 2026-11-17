@@ -20,12 +20,13 @@ public final class SettingsActivity extends Activity {
     private String page="main";
     private int mainScroll;
     private Switch edge,sms;
-    private TextView portal,accessValue;
+    private TextView portal,portalPush,accessValue;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final Runnable refresh=new Runnable(){public void run(){
         if(sms!=null)sms.setChecked(SmsSource.enabled());
         if(edge!=null)edge.setChecked(EdgePanelService.running());
         if(portal!=null){String state=SpletaSource.status();if(!state.equals(portal.getText().toString()))portal.setText(state);}
+        if(portalPush!=null){String state=pushStatus();if(!state.equals(portalPush.getText().toString()))portalPush.setText(state);}
         if(accessValue!=null)accessValue.setText(hasAccess()?"Разрешён":"Разрешить");
         handler.postDelayed(this,1000);
     }};
@@ -41,7 +42,7 @@ public final class SettingsActivity extends Activity {
     private TextView text(String s,int size,int color){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);return t;}
     private GradientDrawable surface(int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));return d;}
     private void showPage(String next){
-        if(scroll!=null&&page.equals("main"))mainScroll=scroll.getScrollY();page=next;edge=null;sms=null;portal=null;accessValue=null;
+        if(scroll!=null&&page.equals("main"))mainScroll=scroll.getScrollY();page=next;edge=null;sms=null;portal=null;portalPush=null;accessValue=null;
         root=column();root.setBackgroundColor(PanelColors.BACKGROUND);
         root.setOnApplyWindowInsetsListener((v,i)->{int top,bottom;if(Build.VERSION.SDK_INT>=30){Insets b=i.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());top=b.top;bottom=b.bottom;}else{top=i.getSystemWindowInsetTop();bottom=i.getSystemWindowInsetBottom();}v.setPadding(0,top,0,bottom);return i;});
         LinearLayout nav=new LinearLayout(this);nav.setGravity(Gravity.CENTER_VERTICAL);nav.setMinimumHeight(dp(56));nav.setPadding(dp(4),0,dp(16),0);
@@ -72,6 +73,7 @@ public final class SettingsActivity extends Activity {
     }
     private String snooze(){int n=prefs.getInt("stack_snooze_minutes",15);return n==0?"Удалять":n==60?"1 час":n==120?"2 часа":n+" мин";}
     private boolean hasAccess(){return getSystemService(NotificationManager.class).isNotificationListenerAccessGranted(new ComponentName(this,NotificationBridge.class));}
+    private String pushStatus(){return !SpletaSource.enabled()?"Фоновый приём выключен":SpletaPushService.running()?SpletaPushService.state:"Фоновый приём не запущен";}
     private void mainPage(){
         section("Панель");edge=toggle("Боковая кнопка",EdgePanelService.running(),on->{if(on)enableEdge();else EdgePanelService.stop(this);edge.setChecked(EdgePanelService.running());});
         link("Свайп стопки",snooze(),()->showPage("snooze"));
@@ -88,6 +90,7 @@ public final class SettingsActivity extends Activity {
         section("Портал");
         link("Spleta",SpletaSource.enabled()?"Подключение":"Подключить",()->startActivity(new Intent(this,SpletaActivity.class)));
         portal=text(SpletaSource.status(),13,PanelColors.MUTED);portal.setPadding(dp(16),dp(8),dp(16),0);body.addView(portal);
+        portalPush=text(pushStatus(),13,PanelColors.MUTED);portalPush.setPadding(dp(16),dp(4),dp(16),0);body.addView(portalPush);
         section("Приложение");
         accessValue=link("Доступ к уведомлениям",hasAccess()?"Разрешён":"Разрешить",()->startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
         link("Виджет на рабочий стол","",()->{android.appwidget.AppWidgetManager wm=android.appwidget.AppWidgetManager.getInstance(this);if(wm.isRequestPinAppWidgetSupported())wm.requestPinAppWidget(new ComponentName(this,PanelWidget.class),null,null);else Toast.makeText(this,"Удерживайте рабочий стол → Виджеты → Шторка",Toast.LENGTH_LONG).show();});
@@ -101,8 +104,9 @@ public final class SettingsActivity extends Activity {
         for(StatusBarNotification s:NotificationBridge.snapshot()){if(SmsSource.owns(s)){names.put(SmsSource.groupKey(s),"SMS");continue;}if(s.getPackageName().equals(getPackageName()))continue;String label=s.getPackageName();try{label=getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(label,0)).toString();}catch(Exception ignored){}names.put(s.getUser().toString()+":"+s.getPackageName(),label);}
         for(String key:selected)names.putIfAbsent(key,key.substring(key.indexOf(':')+1));
         if(names.isEmpty()){TextView empty=text("Здесь появятся приложения, от которых получены уведомления.",16,PanelColors.MUTED);empty.setPadding(dp(16),dp(16),dp(16),0);body.addView(empty);return;}
-        section("Не показывать в Шторке");List<String> keys=new ArrayList<>(names.keySet());Collections.sort(keys,(a,b)->names.get(a).compareToIgnoreCase(names.get(b)));
-        for(String key:keys)toggle(names.get(key),selected.contains(key),on->{if(on)selected.add(key);else selected.remove(key);prefs.edit().putStringSet("excluded",new HashSet<>(selected)).apply();});
+        TextView hint=text("Выключено — приложение исключено из Шторки.",13,PanelColors.MUTED);hint.setPadding(dp(16),dp(8),dp(16),0);body.addView(hint);
+        section("Показывать в Шторке");List<String> keys=new ArrayList<>(names.keySet());Collections.sort(keys,(a,b)->names.get(a).compareToIgnoreCase(names.get(b)));
+        for(String key:keys)toggle(names.get(key),!selected.contains(key),on->{if(on)selected.remove(key);else selected.add(key);prefs.edit().putStringSet("excluded",new HashSet<>(selected)).apply();});
     }
     private void enableEdge(){
         if(!Settings.canDrawOverlays(this)){prefs.edit().putBoolean("edge_pending",true).apply();startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,android.net.Uri.parse("package:"+getPackageName())));return;}

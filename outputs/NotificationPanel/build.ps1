@@ -38,6 +38,8 @@ $argsLines+=@($sources|ForEach-Object {'"'+$_.Replace('\','/')+'"'})
 Run $javac @('@'+$argfile)
 Run $javac @('-encoding','UTF-8','-d',$tests,(Join-Path $project 'src\local\notificationpanel\Grouping.java'),(Join-Path $project 'tests\GroupingTest.java'))
 Run $java @('-cp',$tests,'GroupingTest')
+Run $javac @('-encoding','UTF-8','-d',$tests,(Join-Path $project 'src\local\notificationpanel\MediaDismissal.java'),(Join-Path $project 'tests\MediaDismissalTest.java'))
+Run $java @('-cp',$tests,'local.notificationpanel.MediaDismissalTest')
 Run $javac @('-encoding','UTF-8','-d',$tests,(Join-Path $project 'src\local\notificationpanel\UpdateCore.java'),(Join-Path $project 'tests\UpdateCoreTest.java'))
 Run $java @("-Djava.io.tmpdir=$WorkDir",'-cp',$tests,'UpdateCoreTest')
 $classJar=Join-Path $WorkDir 'classes.jar'
